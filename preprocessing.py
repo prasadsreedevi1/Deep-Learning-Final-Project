@@ -144,6 +144,7 @@ def get_data(path):
 
 
 def main():
+    generate_spectrograms()
     return
 
 if __name__ == '__main__':
