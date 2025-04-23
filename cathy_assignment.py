@@ -5,6 +5,8 @@ from cathy_model import CNN
 import os
 
 import tensorflow as tf
+print("Num GPUs Available:", len(tf.config.list_physical_devices('GPU')))
+
 import numpy as np
 import random
 import math
@@ -30,18 +32,25 @@ def train(model, optimizer, train_inputs, train_labels):
     shuffled_indicies = tf.random.shuffle(indicies)
     shuffled_inputs = tf.gather(train_inputs, shuffled_indicies)
     shuffled_labels = tf.gather(train_labels, shuffled_indicies)
-    flipped_inputs = tf.image.random_flip_left_right(shuffled_inputs)
-    sample_size = flipped_inputs.shape[0]
-    batch_size = 64
+    # flipped_inputs = tf.image.random_flip_left_right(shuffled_inputs)
+    sample_size = shuffled_inputs.shape[0]
+    batch_size = 32
+    # loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+    #     from_logits=False,
+    #     reduction=tf.keras.losses.Reduction.NONE
+    # )
     for i in range(0, sample_size, batch_size):
-            inputs_batch = flipped_inputs[i:i+batch_size]
+            inputs_batch = shuffled_inputs[i:i+batch_size]
             labels_batch = shuffled_labels[i:i+batch_size]
             with tf.GradientTape() as tape:
                 output = model.call(inputs_batch, False)
                 loss = model.loss(output, labels_batch)
                 accuracy = model.accuracy(output, labels_batch)
+                print("Training accuracy" + str(accuracy))
+                print("Training loss" + str(loss))
             gradients = tape.gradient(loss,model.trainable_weights)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+       
 
 
     # raise NotImplementedError
@@ -63,7 +72,7 @@ def test(model, test_inputs, test_labels):
     shuffled_inputs = tf.gather(test_inputs, shuffled_indicies)
     shuffled_labels = tf.gather(test_labels, shuffled_indicies)
     sample_size = shuffled_inputs.shape[0]
-    batch_size = 64
+    batch_size = 32
     batches = 0
     total_accuracy = 0
     for i in range(0, sample_size, batch_size):
@@ -74,7 +83,9 @@ def test(model, test_inputs, test_labels):
         accuracy = model.accuracy(output, labels_batch)
         total_accuracy+= accuracy
         batches+=1
-    print(total_accuracy/batches)
+        print("Testing accuracy" + str(accuracy))
+        print("Testing loss" + str(loss))
+    print("Testing total ccuracy" + str(total_accuracy/batches))
     return total_accuracy/batches
 
 def main():
@@ -90,21 +101,37 @@ def main():
     # train(cnn_model, optimizer, train_imgs, train_labels)
     # test_accuracy = test(cnn_model, train_imgs, test_labels)
 
-    test_imgs, test_labels = get_data('data/test_data.csv')
-    train_imgs, train_labels = get_data('data/train_data.csv')
+    test_imgs, test_labels = get_data('data/test_data_shiv.csv')
+    train_imgs, train_labels = get_data('data/train_data_shiv.csv')
 
-    df = pd.read_csv('data/train_data.csv')
+    df = pd.read_csv('data/train_data_shiv.csv')
     df["genre_id"] = df["Genre"].astype('category').cat.codes
     num_classes = df["genre_id"].nunique()  
+    train_labels = tf.convert_to_tensor(train_labels, dtype=tf.int32)
+    test_labels = tf.convert_to_tensor(test_labels, dtype=tf.int32)
 
+    # test_labels = tf.convert_to_tensor([tf.one_hot(label, num_classes) for label in test_labels])
+    # train_labels = tf.convert_to_tensor([tf.one_hot(label, num_classes) for label in train_labels])
+    # classes = np.arange(num_classes) + 1
+    # cnn model = CNN(classes)
+    # optimizer = tf. keras.optimizers.legacy.Adam ( learning_rate=1-3)
     cnn_model = CNN(num_classes)
     optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=1e-3)
-
-    train(cnn_model, optimizer, train_imgs, train_labels)
-    test_accuracy = test(cnn_model, test_imgs, test_labels)
+    for epoch in range(1000):
+        train(cnn_model, optimizer, train_imgs, train_labels)
+        test_accuracy = test(cnn_model, test_imgs, test_labels)
+        print(f"Epoch {epoch+1} - Test Accuracy: {test_accuracy.numpy()}")
+    # train(cnn_model, optimizer, train_imgs, train_labels)
+    # test_accuracy = test(cnn_model, test_imgs, test_labels)
 
     return
 
+
+    
+
+
+if __name__ == '__main__':
+    main()
 
     
 

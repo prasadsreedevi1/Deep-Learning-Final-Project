@@ -8,7 +8,8 @@ import math
 import pandas as pd
 from preprocessing import get_data
 
-    
+from tensorflow.keras.regularizers import l2
+
 from matplotlib import pyplot as plt
 
 import os
@@ -18,7 +19,6 @@ import random
 import math
 
 # ensures that we run only on cpu
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 class CNN(tf.keras.Model):
@@ -34,14 +34,14 @@ class CNN(tf.keras.Model):
         # Initialize all hyperparameters
         self.loss_list = []
         self.batch_size = 64
-        self.input_width = 128
-        self.input_height = 128
+        self.input_width = 256
+        self.input_height = 256
         self.image_channels = 3
 
        
-        self.num_classes = len(classes)
+        self.num_classes = classes
 
-        self.hidden_layer_size = 320
+        self.hidden_layer_size = 128
 
         self.epsilon = 1e-3  # this is used for batch normalization only!
         self.layer_1_1 = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3,3), 
@@ -50,6 +50,7 @@ class CNN(tf.keras.Model):
             activation='relu',
             use_bias=True,
             kernel_initializer='he_normal',
+
             bias_initializer='zeros',
         )
         self.batch_norm_1 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
@@ -61,7 +62,7 @@ class CNN(tf.keras.Model):
             filters=128, kernel_size=(3, 3), strides=(1, 1), activation='relu',
             padding='SAME', use_bias=True, kernel_initializer='he_normal'
         )
-        self.layer_4 = tf.keras.layers.Dense(units=self.hidden_layer_size, activation='relu', kernel_initializer='he_normal')
+        self.layer_4 = tf.keras.layers.Dense(units=self.hidden_layer_size, kernel_regularizer=l2(1e-4), activation='relu', kernel_initializer='he_normal')
         self.dropout_1 = tf.keras.layers.Dropout(0.5)
 
         self.layer_5 = tf.keras.layers.Dense(units=self.hidden_layer_size, activation='relu', kernel_initializer='he_normal')
@@ -69,7 +70,9 @@ class CNN(tf.keras.Model):
         self.dropout_3 = tf.keras.layers.Dropout(0.5)
         self.dropout_4 = tf.keras.layers.Dropout(0.5)
         self.dropout_5 = tf.keras.layers.Dropout(0.5)
-
+        self.augment_1 = tf.keras.layers.RandomZoom(0.1)
+        self.augment_2 = tf.keras.layers.RandomTranslation(0.1, 0.1)
+        self.augment_3 = tf.keras.layers.RandomContrast(0.1)
 
 
 
@@ -88,50 +91,51 @@ class CNN(tf.keras.Model):
         # shape of filter = (filter_height, filter_width, in_channels, out_channels)
         # shape of strides = (batch_stride, height_stride, width_stride, channels_stride)
 
-        if is_testing:
-            conv_weights = self.layer_1_1.get_weights()  
-            self.layer_1.set_weights(conv_weights[0], conv_weights[1])
-            x = self.layer_1(inputs)
-        else:
-            x = self.layer_1_1(inputs)
+        x = self.augment_1(inputs)
+        x = self.augment_2(x)
+        x = self.augment_3(x)
+        
+        x = self.layer_1_1(x)
         x = tf.nn.relu(x)
         x = self.batch_norm_1(x)
         x = tf.nn.max_pool(
             x,
             ksize=[1, 2, 2, 1],
-            strides=[1, 1, 1, 1],
+            strides=[1,2,2,1],
             padding='SAME'
         )
-
+        if not is_testing:
+            x = tf.image.random_flip_left_right(x)
         x = self.layer_2(x)
         x = tf.nn.relu(x)
         x = self.batch_norm_2(x)
         x = tf.nn.max_pool(
             x,
             ksize=[1, 2, 2, 1],
-            strides=[1, 1, 1, 1],
+            strides=[1,2,2,1],
             padding='SAME'
         )
 
-        x = self.layer_3(x)
-        x = tf.nn.relu(x)
-        x = self.batch_norm_3(x)
-        x = tf.nn.max_pool(
-            x,
-            ksize=[1, 2, 2, 1],
-            strides=[1, 1, 1, 1],
-            padding='SAME'
-        )
-
+        # x = self.layer_3(x)
+        # x = tf.nn.relu(x)
+        # x = self.batch_norm_3(x)
+        # x = tf.nn.max_pool(
+        #     x,
+        #     ksize=[1, 2, 2, 1],
+        #     strides=[1, 1, 1, 1],
+        #     padding='SAME'
+        # )
+        if not is_testing:
+            x = tf.image.random_flip_left_right(x)
         x = tf.reshape(x, [tf.shape(x)[0], -1])
+        # x = self.layer_4(x)
+        # if not is_testing:
+        #     x = self.dropout_1(x)
 
-        x = self.layer_4(x)
-        if not is_testing:
-            x = self.dropout_1(x)
+        # x = self.layer_5(x)
 
-        x = self.layer_5(x)
-        if not is_testing:
-            x = self.dropout_2(x)
+        # if not is_testing:
+        #     x = self.dropout_2(x)
 
         
         output = self.output_layer(x)
@@ -139,17 +143,14 @@ class CNN(tf.keras.Model):
     
     def loss(self, logits, labels):
 
-        categorical_entropy = tf.keras.losses.CategoricalCrossentropy()
-        
-        categorical_loss = categorical_entropy(labels, logits)
-        
+        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False, reduction=tf.keras.losses.Reduction.NONE)
+        categorical_loss = loss_fn(labels, logits)
         return categorical_loss
 
     def accuracy(self, logits, labels):
-	
-        predictions = tf.argmax(logits, axis=1)
-        argmax_labels = tf.argmax(labels, axis=1)
-        equal_values = tf.equal(predictions, argmax_labels)
+        predictions = tf.argmax(logits, axis=1, output_type=tf.int32) 
+        labels = tf.cast(labels, tf.int32) 
+        equal_values = tf.equal(predictions, labels)
         accuracy = tf.reduce_mean(tf.cast(equal_values, tf.float32))
         return accuracy
 
