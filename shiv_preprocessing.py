@@ -40,7 +40,7 @@ def generate_spectrograms():
             spec = librosa.power_to_db(spec, ref=np.max)
 
             spec_id = f"{song_id}_seg{i}"
-            np.save(os.path.join(spectrogram_directory, f"{spec_id}.npy"), spec)
+            # np.save(os.path.join(spectrogram_directory, f"{spec_id}.npy"), spec)
 
             plt.figure(figsize=(10, 4))
             plt.imshow(spec, aspect='auto', origin='lower', cmap='magma')
@@ -53,7 +53,7 @@ def generate_spectrograms():
 
 def create_csv():
     #getting data (average valence and average arousal) for each song
-    va_df = pd.read_csv("/Users/cathyzhao/Desktop/cs1470/Deep-Learning-Final-Project/data/deam/DEAM_Annotations/annotations/annotations averaged per song/song_level/static_annotations_averaged_songs_1_2000.csv")
+    va_df = pd.read_csv("data/deam/DEAM_Annotations/annotations/annotations averaged per song/song_level/static_annotations_averaged_songs_1_2000.csv")
 
     # va_df2 = pd.read_csv("/Users/cathyzhao/Desktop/cs1470/Deep-Learning-Final-Project/data/deam/DEAM_Annotations/annotations/annotations averaged per song/song_level/static_annotations_averaged_songs_2000_2058.csv")
 
@@ -112,12 +112,15 @@ def create_csv():
     df = pd.merge(va_df, genre_df[["song_id", "Genre"]], on="song_id", how="inner")
 
     df = df[df["Genre"].notna()]
+    core_genres = ["classical", "country", "jazz"]
+    # core_genres =["classical", "country", "jazz", "blues", "electronic"]
 
     def map_to_core_genre(genre_str):
         for g in genre_str.lower().split('-'):
             if g.startswith('international'):
                 continue
-            return g
+            if g in core_genres:
+                return g
     #making genre category
     df["Genre"] = df["Genre"].apply(map_to_core_genre)
     df = df[df["Genre"].notna()]
@@ -126,7 +129,7 @@ def create_csv():
     df["genre_id"] = df["Genre"].map(genre_to_idx)
     print(df[["Genre", "genre_id"]].drop_duplicates().sort_values("genre_id"))
 
-    df.to_csv("data/deam/final_song_labels.csv", index=False)
+    df.to_csv("data/final_song_labels.csv", index=False)
     
 def expand_labels_with_segments(original_csv="data/final_song_labels.csv", output_csv="data/final_segment_labels.csv", num_segments=3):
     df = pd.read_csv(original_csv)
@@ -134,11 +137,14 @@ def expand_labels_with_segments(original_csv="data/final_song_labels.csv", outpu
     expanded_rows = []
 
     for _, row in df.iterrows():
+        base_path = row["spec_path"] 
         for i in range(num_segments):
             segment_row = row.copy()
+            seg_path = base_path.replace(".npy", f"_seg{i}.npy")
+            seg_path = seg_path.replace("DEAM_spectrograms",
+                                        "DEAM_spectrograms_shiv")
             segment_row["segment_id"] = f"{row['song_id']}_seg{i}"
-            segment_row["spec_path"] = row["spec_path"].replace(f"{row['song_id']}.npy", f"{row['song_id']}_seg{i}.npy")
-            segment_row["spec_path"] = row["spec_path"].replace("DEAM_spectrograms", "DEAM_spectrograms_shiv")
+            segment_row["spec_path"]  = seg_path
             expanded_rows.append(segment_row)
 
     expanded_df = pd.DataFrame(expanded_rows)
@@ -203,15 +209,15 @@ def split_train_test():
     print("Test shape:", test_df.shape)
     
     #save as new csv
-    train_df.to_csv('train_data_shiv.csv', index=False)
-    test_df.to_csv('test_data_shiv.csv', index=False)
+    train_df.to_csv('data/train_data_shiv.csv', index=False)
+    test_df.to_csv('data/test_data_shiv.csv', index=False)
 
 
 def main():
-    #generate_spectrograms()
-    #expand_labels_with_segments()
-    #create_csv()
-    #split_train_test()
+    # generate_spectrograms()
+    create_csv()
+    expand_labels_with_segments()
+    split_train_test()
         
 
         
