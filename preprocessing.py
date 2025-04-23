@@ -15,11 +15,12 @@ def generate_spectrograms():
 
     for file in os.listdir(audio_directory):
         #getting the song id
+        print("doing file")
         song_id = file.split(".")[0]
         audio_path = os.path.join(audio_directory, file)
 
         y, sr = librosa.load(audio_path, sr=44100)
-        #we are skipping the first 15 seconds because of instructions of the authors. they said the first 15 minutes are not stable
+        #we are skipping the first 15 seconds because of instructions of the authors. they said the first 15 seconds are not stable
         y = y[15 * sr:] 
 
         spec = librosa.feature.melspectrogram(y=y, sr=sr)
@@ -30,7 +31,9 @@ def generate_spectrograms():
         plt.imshow(spec, aspect='auto', origin='lower', cmap='magma')
 
         plt.axis('off')
-        plt.savefig(os.path.join(spectrogram_directory, f"{song_id}.png"))
+        plt.savefig(os.path.join("data/deam/DEAM_spectrograms", f"{song_id}.png"), bbox_inches='tight', pad_inches=0)
+
+        # plt.savefig("data/deam/DEAM_spectrograms", bbox_inches='tight', pad_inches=0)
         plt.close()
 
 
@@ -96,11 +99,13 @@ def create_csv():
 
     df = df[df["Genre"].notna()]
 
+    core_genres=["Pop", "Blues"]
     def map_to_core_genre(genre_str):
         for g in genre_str.lower().split('-'):
             if g.startswith('international'):
                 continue
-            return g
+            if g in core_genres:
+                return g
     #making genre category
     df["Genre"] = df["Genre"].apply(map_to_core_genre)
     df = df[df["Genre"].notna()]
@@ -120,13 +125,11 @@ def get_data(path):
 
     #loop through the CSV to load each image and label
     for i, row in df.iterrows():
-        print(f"Processing image {i + 1}/{len(df)}")
         image_path_png = row['spec_path'].replace('.npy', '.png')
         
         try:
             img = Image.open(image_path_png).convert('RGB')
-            img = img.resize((128,128))
-            print(f"Loaded image: {image_path_png}, size: {img.size}")
+            img = img.resize((256,256))
             
             #normalize
             img_as_array = np.array(img) / 255.0 
