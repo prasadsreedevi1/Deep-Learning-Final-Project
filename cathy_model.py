@@ -136,6 +136,22 @@ class CNN(tf.keras.Model):
         
         output = self.output_layer(x)
         return output
+    
+    def loss(self, logits, labels):
+
+        categorical_entropy = tf.keras.losses.CategoricalCrossentropy()
+        
+        categorical_loss = categorical_entropy(labels, logits)
+        
+        return categorical_loss
+
+    def accuracy(self, logits, labels):
+	
+        predictions = tf.argmax(logits, axis=1)
+        argmax_labels = tf.argmax(labels, axis=1)
+        equal_values = tf.equal(predictions, argmax_labels)
+        accuracy = tf.reduce_mean(tf.cast(equal_values, tf.float32))
+        return accuracy
 
 
     

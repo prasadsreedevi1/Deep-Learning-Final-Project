@@ -90,10 +90,10 @@ def main():
     # train(cnn_model, optimizer, train_imgs, train_labels)
     # test_accuracy = test(cnn_model, train_imgs, test_labels)
 
-    test_imgs, test_labels = get_data('data/deam/test_data.csv')
-    train_imgs, train_labels = get_data('data/deam/train_data.csv')
+    test_imgs, test_labels = get_data('data/test_data.csv')
+    train_imgs, train_labels = get_data('data/train_data.csv')
 
-    df = pd.read_csv('data/deam/train_data.csv')
+    df = pd.read_csv('data/train_data.csv')
     df["genre_id"] = df["Genre"].astype('category').cat.codes
     num_classes = df["genre_id"].nunique()  
 
