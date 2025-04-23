@@ -8,6 +8,7 @@ import csv
 from PIL import Image
 
 def generate_spectrograms():
+    
     audio_directory = "data/deam/DEAM_audio/MEMD_audio"          
     spectrogram_directory = "data/deam/DEAM_spectrograms"     
     os.makedirs(spectrogram_directory, exist_ok=True)
@@ -33,7 +34,7 @@ def generate_spectrograms():
         plt.close()
 
 
-
+def create_csv():
     #getting data (average valence and average arousal) for each song
     va_df = pd.read_csv("/Users/cathyzhao/Desktop/cs1470/Deep-Learning-Final-Project/data/deam/DEAM_Annotations/annotations/annotations averaged per song/song_level/static_annotations_averaged_songs_1_2000.csv")
 
@@ -58,10 +59,10 @@ def generate_spectrograms():
 
 
     #metadata for songs 1001-2000
-    # print("meta2")
-    # meta2 = pd.read_csv("data/metadata/metadata_2014.csv")
-    # print(meta2.head(2))
-    # print("Columns:", meta2.columns.tolist())
+    print("meta2")
+    meta2 = pd.read_csv("data/metadata/metadata_2014.csv")
+    print(meta2.head(2))
+    print("Columns:", meta2.columns.tolist())
     meta2_rows = []
     with open("data/metadata/metadata_2014.csv") as f:
         reader = csv.reader(f)
@@ -93,17 +94,20 @@ def generate_spectrograms():
     #merging valence and arousal data with genre and song id
     df = pd.merge(va_df, genre_df[["song_id", "Genre"]], on="song_id", how="inner")
 
+    df = df[df["Genre"].notna()]
+
+    def map_to_core_genre(genre_str):
+        for g in genre_str.lower().split('-'):
+            if g.startswith('international'):
+                continue
+            return g
     #making genre category
-    df["genre_id"] = df["Genre"].astype('category')
-
-    #making each category of genre a number
+    df["Genre"] = df["Genre"].apply(map_to_core_genre)
+    df = df[df["Genre"].notna()]
     genres = sorted(df["Genre"].unique())
-    genre_to_idx = {}
-
-    for i in range(len(genres)):
-        genre_to_idx[genres[i]] = i
-
+    genre_to_idx = {genre: i for i, genre in enumerate(genres)}
     df["genre_id"] = df["Genre"].map(genre_to_idx)
+    print(df[["Genre", "genre_id"]].drop_duplicates().sort_values("genre_id"))
 
     df.to_csv("data/deam/final_song_labels.csv", index=False)
     
@@ -121,7 +125,7 @@ def get_data(path):
         
         try:
             img = Image.open(image_path_png).convert('RGB')
-            
+            img = img.resize((128,128))
             print(f"Loaded image: {image_path_png}, size: {img.size}")
             
             #normalize
@@ -142,9 +146,38 @@ def get_data(path):
     
     return img_array, labels
 
+def split_train_test():
+    
+    #get list of song_ids
+    df = pd.read_csv('data/deam/final_song_labels.csv')
+    song_ids = df['song_id'].to_numpy()
+
+    #print(song_ids[0:10])
+    #print(song_ids[-10:])
+    
+    #random shuffle
+    shuffled_ids = np.random.permutation(song_ids)
+    
+    #split 80-20ish
+    split = int(len(shuffled_ids) * 0.8)
+    train_ids = shuffled_ids[:split]
+    test_ids = shuffled_ids[split:]
+    
+    train_df = df[df['song_id'].isin(train_ids)].reset_index(drop=True)
+    test_df = df[df['song_id'].isin(test_ids)].reset_index(drop=True)
+    
+    print("Train shape:", train_df.shape)
+    print("Test shape:", test_df.shape)
+    
+    #save as new csv
+    train_df.to_csv('train_data.csv', index=False)
+    test_df.to_csv('test_data.csv', index=False)
+
 
 def main():
     generate_spectrograms()
+    create_csv()
+    split_train_test()
     return
 
 if __name__ == '__main__':

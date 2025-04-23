@@ -38,10 +38,10 @@ def split_train_test():
 def main():
     
     #get train and test data
-    #split_train_test()
+    split_train_test()
     
-    test_imgs, test_labels = get_data('data/deam/test_data.csv')
-    train_imgs, train_labels = get_data('data/deam/train_data.csv')
+    # test_imgs, test_labels = get_data('data/deam/test_data.csv')
+    # train_imgs, train_labels = get_data('data/deam/train_data.csv')
 
     # # TODO: assignment.main() pt 1
     # # Load your testing and training data using the get_data function
