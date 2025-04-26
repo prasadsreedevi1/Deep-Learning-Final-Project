@@ -186,6 +186,62 @@ def get_data(path):
     
     return img_array, labels
 
+def get_data_emotion(path):
+    df = pd.read_csv(path)
+
+    segments = []
+    labels = []
+    print(f"Total images to process: {len(df)}")
+
+    #loop through the CSV to load each image and label
+    for i, row in df.iterrows():
+        print(f"Processing image {i + 1}/{len(df)}")
+        image_path_png = row['spec_path'].replace('.npy', '.png')
+        
+        try:
+            img = Image.open(image_path_png).convert('RGB')
+            img = img.resize((256,256))
+            print(f"Loaded image: {image_path_png}, size: {img.size}")
+            
+            #normalize
+            img_as_array = np.array(img) / 255.0
+            
+            height, width, _ = img_as_array.shape
+            
+            #slide over width axis (time)
+            segment_width = 32
+            stride = 32
+            for start in range(0, width - segment_width + 1, stride):
+                segment = img_as_array[:, start:start+segment_width, :]
+                segments.append(segment)
+                
+                #add both labels (valence and arousal) for eacch segment
+                labels.append([row['valence'], row['arousal']]) 
+            
+        except Exception as e:
+            print(f"Error loading {image_path_png}: {e}")
+            continue
+
+    #convert lists to numpy arrays
+    segments = np.array(segments)
+    labels = np.array(labels)
+    
+    # Reshape segments and labels into sequences (timesteps)
+    timesteps = 10
+    segment_h, segment_w, c = segments.shape[1:]
+    num_samples = len(segments) // timesteps
+    
+    X = segments[:num_samples * timesteps].reshape(num_samples, timesteps, segment_h, segment_w, c)
+    X = X.reshape(num_samples, timesteps, segment_h * segment_w * c)  #flatten for LSTM so sequence of timesteps
+
+    #using the last timesteps emotion as the label for the sequence
+    y = labels[:num_samples * timesteps].reshape(num_samples, timesteps, 2)[:, -1, :]
+
+    print("Final shape of segmented inputs:", X.shape)
+    print("Final shape of labels:", y.shape)
+    
+    return X, y
+
 def split_train_test():
     
     #get list of song_ids -- split by song so segments dont get split

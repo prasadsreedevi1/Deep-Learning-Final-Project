@@ -6,11 +6,12 @@ import numpy as np
 import random
 import math
 import pandas as pd
-from preprocessing import get_data
+from shiv_preprocessing import get_data
 
 from tensorflow.keras.regularizers import l2
 
 from matplotlib import pyplot as plt
+from tensorflow.keras.layers import GlobalAveragePooling2D, LeakyReLU
 
 import os
 import tensorflow as tf
@@ -47,23 +48,35 @@ class CNN(tf.keras.Model):
         self.layer_1_1 = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3,3), 
                                               strides=(1, 1),
             padding='SAME',
-            activation='relu',
             use_bias=True,
             kernel_initializer='he_normal',
-
+            kernel_regularizer=l2(1e-4),
+            activation='relu',
+            
             bias_initializer='zeros',
         )
         self.batch_norm_1 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
         self.batch_norm_2 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
         self.batch_norm_3 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
-        self.layer_2 = tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1),padding='SAME', activation='relu', use_bias=True, kernel_initializer='he_normal')
+        self.batch_norm_4 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
+        self.batch_norm_5 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
+        self.layer_2 = tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), strides=(2, 2),padding='SAME', activation='relu', use_bias=True, kernel_initializer='he_normal')
 
         self.layer_3 = tf.keras.layers.Conv2D(
-            filters=128, kernel_size=(3, 3), strides=(1, 1), activation='relu',
-            padding='SAME', use_bias=True, kernel_initializer='he_normal'
+            filters=128, kernel_size=(3, 3), strides=(2, 2), 
+            padding='SAME', use_bias=True, activation='relu', kernel_initializer='he_normal'
         )
-        self.layer_4 = tf.keras.layers.Dense(units=self.hidden_layer_size, kernel_regularizer=l2(1e-4), activation='relu', kernel_initializer='he_normal')
-        self.dropout_1 = tf.keras.layers.Dropout(0.5)
+        self.layer_3_1 = tf.keras.layers.Conv2D(
+            filters=256, kernel_size=(3, 3), strides=(2, 2), 
+            padding='SAME',  use_bias=True, activation='relu', kernel_initializer='he_normal'
+        )
+        self.layer_3_2 = tf.keras.layers.Conv2D(
+            filters=512, kernel_size=(3, 3), strides=(2, 2), 
+            padding='SAME', activation='relu', use_bias=True, kernel_initializer='he_normal'
+        )
+
+        self.layer_4 = tf.keras.layers.Dense(units=self.hidden_layer_size, activation='relu', kernel_regularizer=l2(1e-4), kernel_initializer='he_normal')
+        self.dropout_1 = tf.keras.layers.Dropout(0.2)
 
         self.layer_5 = tf.keras.layers.Dense(units=self.hidden_layer_size, activation='relu', kernel_initializer='he_normal')
         self.dropout_2 = tf.keras.layers.Dropout(0.5)
@@ -77,7 +90,7 @@ class CNN(tf.keras.Model):
 
 
         self.output_layer = tf.keras.layers.Dense(units=self.num_classes, activation='softmax', kernel_initializer='he_normal')
-
+        self.regression_output_layer = tf.keras.layers.Dense(units=2, activation='tanh', kernel_initializer='he_normal')
 
     def call(self, inputs, is_testing=False):
         """
@@ -90,12 +103,14 @@ class CNN(tf.keras.Model):
         # shape of input = (num_inputs (or batch_size), in_height, in_width, in_channels)
         # shape of filter = (filter_height, filter_width, in_channels, out_channels)
         # shape of strides = (batch_stride, height_stride, width_stride, channels_stride)
-
-        x = self.augment_1(inputs)
-        x = self.augment_2(x)
-        x = self.augment_3(x)
+        if not is_testing:
+            inputs = self.augment_1(inputs)
+            inputs = self.augment_2(inputs)
+            inputs = self.augment_3(inputs)
         
-        x = self.layer_1_1(x)
+        x = self.layer_1_1(inputs)
+        # x = LeakyReLU(alpha=0.1)(x)
+
         x = tf.nn.relu(x)
         x = self.batch_norm_1(x)
         x = tf.nn.max_pool(
@@ -107,6 +122,7 @@ class CNN(tf.keras.Model):
         if not is_testing:
             x = tf.image.random_flip_left_right(x)
         x = self.layer_2(x)
+        # x = LeakyReLU(alpha=0.1)(x)
         x = tf.nn.relu(x)
         x = self.batch_norm_2(x)
         x = tf.nn.max_pool(
@@ -116,9 +132,29 @@ class CNN(tf.keras.Model):
             padding='SAME'
         )
 
-        # x = self.layer_3(x)
+        x = self.layer_3(x)
+        # x = LeakyReLU(alpha=0.1)(x)
+        x = tf.nn.relu(x)
+        x = self.batch_norm_3(x)
+        x = tf.nn.max_pool(
+            x,
+            ksize=[1, 2, 2, 1],
+            strides=[1, 1, 1, 1],
+            padding='SAME'
+        )
+        x = self.layer_3_1(x)
+        # x = LeakyReLU(alpha=0.1)(x)
+        x = tf.nn.relu(x)
+        x = self.batch_norm_4(x)
+        x = tf.nn.max_pool(
+            x,
+            ksize=[1, 2, 2, 1],
+            strides=[1, 1, 1, 1],
+            padding='SAME'
+        )
+        # x = self.layer_3_2(x)
         # x = tf.nn.relu(x)
-        # x = self.batch_norm_3(x)
+        # x = self.batch_norm_5(x)
         # x = tf.nn.max_pool(
         #     x,
         #     ksize=[1, 2, 2, 1],
@@ -127,7 +163,10 @@ class CNN(tf.keras.Model):
         # )
         if not is_testing:
             x = tf.image.random_flip_left_right(x)
-        x = tf.reshape(x, [tf.shape(x)[0], -1])
+
+        x = GlobalAveragePooling2D()(x)
+
+        # x = tf.reshape(x, [tf.shape(x)[0], -1])
         # x = self.layer_4(x)
         # if not is_testing:
         #     x = self.dropout_1(x)
@@ -139,57 +178,32 @@ class CNN(tf.keras.Model):
 
         
         output = self.output_layer(x)
-        return output
+        # valence_arousal_preds = self.regression_output_layer(x)
+        # return output
+        valence_arousal_preds = self.regression_output_layer(x)
+        return output, valence_arousal_preds
     
-    def loss(self, logits, labels):
+    def loss(self, genre_logits, genre_labels, valence_arousal_preds, valence_arousal_labels):
+
 
         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False, reduction=tf.keras.losses.Reduction.NONE)
-        categorical_loss = loss_fn(labels, logits)
-        return categorical_loss
+        genre_loss = loss_fn(genre_labels, genre_logits)
+    
+        if valence_arousal_preds is not None and valence_arousal_labels is not None:
+            regression_loss_fn = tf.keras.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+            va_loss = regression_loss_fn(valence_arousal_labels, valence_arousal_preds)
+            total_loss = genre_loss + 20*va_loss
+            return total_loss
+        return genre_loss
 
-    def accuracy(self, logits, labels):
+    def accuracy(self,logits, labels):
         predictions = tf.argmax(logits, axis=1, output_type=tf.int32) 
         labels = tf.cast(labels, tf.int32) 
         equal_values = tf.equal(predictions, labels)
         accuracy = tf.reduce_mean(tf.cast(equal_values, tf.float32))
         return accuracy
 
-
-    
-def main():
-    
-    #get train and test data
-    #split_train_test()
-    
-    test_imgs, test_labels = get_data('data/deam/test_data.csv')
-    train_imgs, train_labels = get_data('data/deam/train_data.csv')
-
-    # # TODO: assignment.main() pt 1
-    # # Load your testing and training data using the get_data function
-    # train_inputs, train_labels = get_data(AUTOGRADER_TRAIN_FILE, classes = [3,5])
-    # test_inputs, test_labels = get_data(AUTOGRADER_TEST_FILE, classes = [3,5])
-    
-
-    # # TODO: assignment.main() pt 2
-    # # Initialize your model and optimizer
-    # #model = MLP(classes= [3,5])
-    # model = CNN(classes = [3,5])
-    # adam = tf.keras.optimizers.legacy.Adam(learning_rate=0.001) # use legacy bc warning
-    
-    
-
-    # # TODO: assignment.main() pt 3
-    # # Train your model
-    # for epoch in range(10):
-    #     train(model = model, optimizer=adam, train_inputs = train_inputs, train_labels = train_labels)
-
-    # # TODO: assignment.main() pt 4
-    # # Test your model
-    # accuracy = test(model = model, test_inputs = test_inputs, test_labels = test_labels)
-    # #print("test_accuracy: ", accuracy)
-
-    return
-
-
-if __name__ == '__main__':
-    main()
+    def valence_arousal_accuracy(self, preds, labels):
+        labels = tf.cast(labels, tf.float32)
+        accuracy = tf.abs(preds - labels)
+        return tf.reduce_mean(tf.cast(accuracy, tf.float32))
