@@ -1,1 +1,19 @@
 # Deep-Learning-Final-Project
+
+## Introduction: This can be copied from the proposal.
+We are trying to solve a problem for music listeners, which is not being able to find specific songs in their niche genre and mood. We are solving this problem because we are all music enjoyers and encounter this issue often. Finding playlists on Spotify sometimes is not efficient. The authors of this paper aimed to determine whether CNNs are effective for classifying music genres when trained on spectrograms. This problem is a classification problem as we are categorizing music into different genres based on their features. The other aspect of our project is a regression problem, as we are trying to predict the valence and arousal values from different audio data. 
+
+## Challenges: What has been the hardest part of the project you’ve encountered so far?
+The hardest part of the project was improving our model’s test accuracy. Initially, we were stuck at about ~20-30% test accuracy despite multiple training attempts. This forced us to rethink our data preprocessing and model architecture, and we started with adding more convolutional layers, allowing the model to capture more complex features from the input data. Additionally, we had the idea to augment our dataset, since we thought having more training data would enable the model to perform better. So, for each 45 second clip, we experimented with segmenting it into smaller clips and keeping the same labels. Thus, we could increase the amount of data we had by a factor of the number of segments we decided to use. We segmented each audio file into 3 segments (skipped the first 15 seconds, and then the remaining 30 seconds were split into 10 second segments). This essentially increased the data we had by a factor of 3 and significantly improved accuracy.  Alongside, we located another research paper, where we discovered that the authors worked with classifying three-five genres. Since our dataset involved 13 genres, we took inspiration from the paper and decided to try reducing the number of genres we were trying to classify, to make it more feasible for the model to distinguish between classes. These two key changes allowed us to pass the low testing threshold and significantly improved our testing accuracy.
+
+## Insights: Are there any concrete results you can show at this point?
+Yes, there are concrete results that we can show. We can show our model’s testing accuracy after genre classification, as well as the loss and mean absolute error (MAE) from our LSTM predictions for valence and arousal. These metrics give a good indication of both our classification and regression model performance.
+### How is your model performing compared with expectations?
+We think our model is performing comparatively well with expectations. We didn’t expect to achieve as high of an accuracy with only the CNNs, but because we were able to narrow down the genres and add more layers, the testing accuracy improved a lot more. For the emotion prediction, our LSTM model shows reasonable performance, especially considering the sequential complexity of emotional trends in music.
+
+## Plan: Are you on track with your project?
+Yes, we are on track with our project. We have essentially finished implementing our model with CNNs and an LSTM, and are continuing to train our model and fine-tune our models to have greater test accuracy.
+### What do you need to dedicate more time to?
+At this point, we need to dedicate more time to finishing the poster, generating visualizations of our model, as well as completing final reflection. Additionally, we plan to spend some time cleaning up and organizing our code base.
+### What are you thinking of changing, if anything?
+At this point, we are not planning any major architectural changes to the model. However, we are considering running a few additional experiments, to further improve performance if time permits.
