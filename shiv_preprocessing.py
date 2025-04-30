@@ -112,7 +112,13 @@ def create_csv():
     df = pd.merge(va_df, genre_df[["song_id", "Genre"]], on="song_id", how="inner")
 
     df = df[df["Genre"].notna()]
-    core_genres = ["classical", "country", "jazz"]
+    # core_genres = ["jazz", "country", "electronic"]
+    core_genres = ["pop", "classical", "electronic", "country", "blues"]
+    # core_genres = ["jazz", "classical", "electronic", "country", "blues"]
+    # core_genres = ["classical", "country", "blues", "electronic"]
+    # core_genres = ["country", "jazz", "pop", "electronic"]
+    # core_genres = ["country", "jazz", "rock", "electronic"]
+
     # core_genres =["classical", "country", "jazz", "blues", "electronic"]
 
     def map_to_core_genre(genre_str):
@@ -155,7 +161,8 @@ def get_data(path):
     df = pd.read_csv(path)
 
     img_array = []
-    labels = []
+    genre_labels = []
+    valence_arousal_labels = []
     print(f"Total images to process: {len(df)}")
 
     #loop through the CSV to load each image and label
@@ -172,79 +179,73 @@ def get_data(path):
             img_as_array = np.array(img) / 255.0 
             
             img_array.append(img_as_array)
-            labels.append(row['genre_id'])
+            genre_labels.append(row['genre_id'])
+            valence_arousal_labels.append((row['valence'], row['arousal']))
         except Exception as e:
             print(f"Error loading {image_path_png}: {e}")
             continue
 
     #convert lists to numpy arrays
     img_array = np.array(img_array)
-    labels = np.array(labels)
+    genre_labels = np.array(genre_labels)
+    valence_arousal_labels = np.array(valence_arousal_labels)
 
     print("Final shape of img_array:", img_array.shape)
-    print("Final shape of labels:", labels.shape)
+    print("Final shape of labels:", valence_arousal_labels.shape)
     
-    return img_array, labels
+    return img_array, genre_labels, valence_arousal_labels
+
 
 def get_data_emotion(path):
     df = pd.read_csv(path)
 
     segments = []
-    labels = []
+    va_labels = []
+    genre_labels = []
     print(f"Total images to process: {len(df)}")
 
-    #loop through the CSV to load each image and label
     for i, row in df.iterrows():
-        print(f"Processing image {i + 1}/{len(df)}")
         image_path_png = row['spec_path'].replace('.npy', '.png')
         
         try:
             img = Image.open(image_path_png).convert('RGB')
             img = img.resize((256,256))
-            print(f"Loaded image: {image_path_png}, size: {img.size}")
-            
-            #normalize
             img_as_array = np.array(img) / 255.0
             
             height, width, _ = img_as_array.shape
-            
-            #slide over width axis (time)
             segment_width = 32
             stride = 32
             for start in range(0, width - segment_width + 1, stride):
                 segment = img_as_array[:, start:start+segment_width, :]
                 segments.append(segment)
-                
-                #add both labels (valence and arousal) for eacch segment
-                labels.append([row['valence'], row['arousal']]) 
-            
+                va_labels.append([row['valence'], row['arousal']])
+                genre_labels.append(row['genre_id'])  # <-- new line
         except Exception as e:
             print(f"Error loading {image_path_png}: {e}")
             continue
 
-    #convert lists to numpy arrays
     segments = np.array(segments)
-    labels = np.array(labels)
+    va_labels = np.array(va_labels)
+    genre_labels = np.array(genre_labels)
     
-    # Reshape segments and labels into sequences (timesteps)
     timesteps = 10
     segment_h, segment_w, c = segments.shape[1:]
     num_samples = len(segments) // timesteps
     
     X = segments[:num_samples * timesteps].reshape(num_samples, timesteps, segment_h, segment_w, c)
-    X = X.reshape(num_samples, timesteps, segment_h * segment_w * c)  #flatten for LSTM so sequence of timesteps
+    X = X.reshape(num_samples, timesteps, segment_h * segment_w * c)
 
-    #using the last timesteps emotion as the label for the sequence
-    y = labels[:num_samples * timesteps].reshape(num_samples, timesteps, 2)[:, -1, :]
+    va_y = va_labels[:num_samples * timesteps].reshape(num_samples, timesteps, 2)[:, -1, :]
+    genre_y = genre_labels[:num_samples * timesteps].reshape(num_samples, timesteps)[:, -1]
 
     print("Final shape of segmented inputs:", X.shape)
-    print("Final shape of labels:", y.shape)
-    
-    return X, y
+    print("Final shape of valence/arousal labels:", va_y.shape)
+    print("Final shape of genre labels:", genre_y.shape)
+
+    return X, genre_y, va_y
 
 def split_train_test():
-    
-    #get list of song_ids -- split by song so segments dont get split
+ 
     full_df = pd.read_csv('data/final_segment_labels.csv')
     base_df = pd.read_csv('data/final_song_labels.csv')
     song_ids = base_df['song_id'].unique()
@@ -267,7 +268,6 @@ def split_train_test():
     #save as new csv
     train_df.to_csv('data/train_data_shiv.csv', index=False)
     test_df.to_csv('data/test_data_shiv.csv', index=False)
-
 
 def main():
     # generate_spectrograms()
