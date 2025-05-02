@@ -10,36 +10,50 @@ from PIL import Image
 def generate_spectrograms():
     
     audio_directory = "data/deam/DEAM_audio/MEMD_audio"          
-    spectrogram_directory = "data/deam/DEAM_spectrograms"     
+    spectrogram_directory = "data/deam/DEAM_spectrograms_shiv"     
     os.makedirs(spectrogram_directory, exist_ok=True)
+
+    seg_length = 10
+    num_segs = 3
+    skip_fifteen = 15
 
     for file in os.listdir(audio_directory):
         #getting the song id
-        print("doing file")
         song_id = file.split(".")[0]
         audio_path = os.path.join(audio_directory, file)
 
         y, sr = librosa.load(audio_path, sr=44100)
-        #we are skipping the first 15 seconds because of instructions of the authors. they said the first 15 seconds are not stable
-        y = y[15 * sr:] 
+        #we are skipping the first 15 seconds because of instructions of the authors. they said the first 15 minutes are not stable
+        y = y[skip_fifteen * sr:] 
 
-        spec = librosa.feature.melspectrogram(y=y, sr=sr)
+        total_required = seg_length * num_segs * sr
+        if len(y) < total_required:
+            print(f"Skipping {song_id}: not enough audio")
+            continue
 
-        spec = librosa.power_to_db(spec, ref=np.max)
-        np.save(os.path.join(spectrogram_directory, f"{song_id}.npy"), spec)
-        plt.figure(figsize=(10, 4))
-        plt.imshow(spec, aspect='auto', origin='lower', cmap='magma')
+        for i in range(num_segs):
+            start_sample = i * seg_length * sr
+            end_sample = start_sample + seg_length * sr
+            segment = y[start_sample:end_sample]
 
-        plt.axis('off')
-        plt.savefig(os.path.join("data/deam/DEAM_spectrograms", f"{song_id}.png"), bbox_inches='tight', pad_inches=0)
+            spec = librosa.feature.melspectrogram(y=segment, sr=sr)
+            spec = librosa.power_to_db(spec, ref=np.max)
 
-        # plt.savefig("data/deam/DEAM_spectrograms", bbox_inches='tight', pad_inches=0)
-        plt.close()
+            spec_id = f"{song_id}_seg{i}"
+            # np.save(os.path.join(spectrogram_directory, f"{spec_id}.npy"), spec)
+
+            plt.figure(figsize=(10, 4))
+            plt.imshow(spec, aspect='auto', origin='lower', cmap='magma')
+
+            plt.axis('off')
+            plt.savefig(os.path.join(spectrogram_directory, f"{spec_id}.png"))
+            plt.close()
+        print("done with song id", song_id)
 
 
 def create_csv():
     #getting data (average valence and average arousal) for each song
-    va_df = pd.read_csv("/Users/cathyzhao/Desktop/cs1470/Deep-Learning-Final-Project/data/deam/DEAM_Annotations/annotations/annotations averaged per song/song_level/static_annotations_averaged_songs_1_2000.csv")
+    va_df = pd.read_csv("data/deam/DEAM_Annotations/annotations/annotations averaged per song/song_level/static_annotations_averaged_songs_1_2000.csv")
 
     # va_df2 = pd.read_csv("/Users/cathyzhao/Desktop/cs1470/Deep-Learning-Final-Project/data/deam/DEAM_Annotations/annotations/annotations averaged per song/song_level/static_annotations_averaged_songs_2000_2058.csv")
 
@@ -98,8 +112,15 @@ def create_csv():
     df = pd.merge(va_df, genre_df[["song_id", "Genre"]], on="song_id", how="inner")
 
     df = df[df["Genre"].notna()]
+    # core_genres = ["jazz", "country", "electronic"]
+    core_genres = ["pop", "classical", "electronic", "country", "blues"]
+    # core_genres = ["jazz", "classical", "electronic", "country", "blues"]
+    # core_genres = ["classical", "country", "blues", "electronic"]
+    # core_genres = ["country", "jazz", "pop", "electronic"]
+    # core_genres = ["country", "jazz", "rock", "electronic"]
 
-    core_genres=["Pop", "Blues"]
+    # core_genres =["classical", "country", "jazz", "blues", "electronic"]
+
     def map_to_core_genre(genre_str):
         for g in genre_str.lower().split('-'):
             if g.startswith('international'):
@@ -114,49 +135,121 @@ def create_csv():
     df["genre_id"] = df["Genre"].map(genre_to_idx)
     print(df[["Genre", "genre_id"]].drop_duplicates().sort_values("genre_id"))
 
-    df.to_csv("data/deam/final_song_labels.csv", index=False)
+    df.to_csv("data/final_song_labels.csv", index=False)
     
+def expand_labels_with_segments(original_csv="data/final_song_labels.csv", output_csv="data/final_segment_labels.csv", num_segments=3):
+    df = pd.read_csv(original_csv)
+
+    expanded_rows = []
+
+    for _, row in df.iterrows():
+        base_path = row["spec_path"] 
+        for i in range(num_segments):
+            segment_row = row.copy()
+            seg_path = base_path.replace(".npy", f"_seg{i}.npy")
+            seg_path = seg_path.replace("DEAM_spectrograms",
+                                        "DEAM_spectrograms_shiv")
+            segment_row["segment_id"] = f"{row['song_id']}_seg{i}"
+            segment_row["spec_path"]  = seg_path
+            expanded_rows.append(segment_row)
+
+    expanded_df = pd.DataFrame(expanded_rows)
+    expanded_df.to_csv(output_csv, index=False)
+    print(f"Segmented CSV saved to {output_csv}, total samples: {len(expanded_df)}")
+
 def get_data(path):
     df = pd.read_csv(path)
 
     img_array = []
-    labels = []
+    genre_labels = []
+    valence_arousal_labels = []
     print(f"Total images to process: {len(df)}")
 
     #loop through the CSV to load each image and label
     for i, row in df.iterrows():
+        print(f"Processing image {i + 1}/{len(df)}")
         image_path_png = row['spec_path'].replace('.npy', '.png')
         
         try:
             img = Image.open(image_path_png).convert('RGB')
             img = img.resize((256,256))
+            print(f"Loaded image: {image_path_png}, size: {img.size}")
             
             #normalize
             img_as_array = np.array(img) / 255.0 
             
             img_array.append(img_as_array)
-            labels.append(row['genre_id'])
+            genre_labels.append(row['genre_id'])
+            valence_arousal_labels.append((row['valence'], row['arousal']))
         except Exception as e:
             print(f"Error loading {image_path_png}: {e}")
             continue
 
     #convert lists to numpy arrays
     img_array = np.array(img_array)
-    labels = np.array(labels)
+    genre_labels = np.array(genre_labels)
+    valence_arousal_labels = np.array(valence_arousal_labels)
 
     print("Final shape of img_array:", img_array.shape)
-    print("Final shape of labels:", labels.shape)
+    print("Final shape of labels:", valence_arousal_labels.shape)
     
-    return img_array, labels
+    return img_array, genre_labels, valence_arousal_labels
+
+
+def get_data_emotion(path):
+    df = pd.read_csv(path)
+
+    segments = []
+    va_labels = []
+    genre_labels = []
+    print(f"Total images to process: {len(df)}")
+
+    for i, row in df.iterrows():
+        image_path_png = row['spec_path'].replace('.npy', '.png')
+        
+        try:
+            img = Image.open(image_path_png).convert('RGB')
+            img = img.resize((256,256))
+            img_as_array = np.array(img) / 255.0
+            
+            height, width, _ = img_as_array.shape
+            segment_width = 32
+            stride = 32
+            for start in range(0, width - segment_width + 1, stride):
+                segment = img_as_array[:, start:start+segment_width, :]
+                segments.append(segment)
+                va_labels.append([row['valence'], row['arousal']])
+                genre_labels.append(row['genre_id'])  # <-- new line
+        except Exception as e:
+            print(f"Error loading {image_path_png}: {e}")
+            continue
+
+    segments = np.array(segments)
+    va_labels = np.array(va_labels)
+    genre_labels = np.array(genre_labels)
+    
+    timesteps = 10
+    segment_h, segment_w, c = segments.shape[1:]
+    num_samples = len(segments) // timesteps
+    
+    X = segments[:num_samples * timesteps].reshape(num_samples, timesteps, segment_h, segment_w, c)
+    X = X.reshape(num_samples, timesteps, segment_h * segment_w * c)
+
+    va_y = va_labels[:num_samples * timesteps].reshape(num_samples, timesteps, 2)[:, -1, :]
+    genre_y = genre_labels[:num_samples * timesteps].reshape(num_samples, timesteps)[:, -1]
+
+    print("Final shape of segmented inputs:", X.shape)
+    print("Final shape of valence/arousal labels:", va_y.shape)
+    print("Final shape of genre labels:", genre_y.shape)
+
+    return X, genre_y, va_y
 
 def split_train_test():
-    
-    #get list of song_ids
-    df = pd.read_csv('data/deam/final_song_labels.csv')
-    song_ids = df['song_id'].to_numpy()
+ 
+    full_df = pd.read_csv('data/final_segment_labels.csv')
+    base_df = pd.read_csv('data/final_song_labels.csv')
+    song_ids = base_df['song_id'].unique()
 
-    #print(song_ids[0:10])
-    #print(song_ids[-10:])
     
     #random shuffle
     shuffled_ids = np.random.permutation(song_ids)
@@ -166,21 +259,25 @@ def split_train_test():
     train_ids = shuffled_ids[:split]
     test_ids = shuffled_ids[split:]
     
-    train_df = df[df['song_id'].isin(train_ids)].reset_index(drop=True)
-    test_df = df[df['song_id'].isin(test_ids)].reset_index(drop=True)
+    train_df = full_df[full_df['song_id'].isin(train_ids)].reset_index(drop=True)
+    test_df = full_df[full_df['song_id'].isin(test_ids)].reset_index(drop=True)
     
     print("Train shape:", train_df.shape)
     print("Test shape:", test_df.shape)
     
     #save as new csv
-    train_df.to_csv('train_data.csv', index=False)
-    test_df.to_csv('test_data.csv', index=False)
-
+    train_df.to_csv('data/train_data_shiv.csv', index=False)
+    test_df.to_csv('data/test_data_shiv.csv', index=False)
 
 def main():
-    generate_spectrograms()
+    # generate_spectrograms()
     create_csv()
+    expand_labels_with_segments()
     split_train_test()
+        
+
+        
+
     return
 
 if __name__ == '__main__':
