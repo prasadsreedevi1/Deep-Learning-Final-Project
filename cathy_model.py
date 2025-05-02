@@ -88,7 +88,7 @@ class CNN(tf.keras.Model):
 
 
         self.output_layer = tf.keras.layers.Dense(units=self.num_classes, activation='softmax', kernel_initializer='he_normal')
-        self.regression_output_layer = tf.keras.layers.Dense(units=2, activation='tanh', kernel_initializer='he_normal')
+        self.regression_output_layer = tf.keras.layers.Dense(units=2, activation='sigmoid', kernel_initializer='he_normal')
 
     def call(self, inputs, is_testing=False):
    
