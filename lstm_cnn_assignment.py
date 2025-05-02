@@ -81,7 +81,7 @@ def plot_loss_and_accuracy(losses, genre_accuracies):
 
     ax2 = ax1.twinx()  
     ax2.set_ylabel('Accuracy', color='blue', fontsize=14)
-    ax2.plot(epochs, accuracies, color='blue', label='Accuracy', linewidth=2)
+    ax2.plot(epochs, genre_accuracies, color='blue', label='Accuracy', linewidth=2)
     ax2.tick_params(axis='y', labelcolor='blue')
     ax2.set_ylim(0, 1.05)  
 
@@ -133,8 +133,7 @@ def main():
         loss_per_epoch.append(avg_loss.numpy())
         genre_acc_per_epoch.append(avg_genre_acc.numpy())
         va_mae_per_epoch.append(avg_va_mae.numpy())
-    plot_loss(loss_per_epoch)
-    plot_genre_accuracy(genre_acc_per_epoch)
+   
     plot_valence_mae(va_mae_per_epoch)
     plot_loss_and_accuracy(loss_per_epoch, genre_acc_per_epoch)
 
