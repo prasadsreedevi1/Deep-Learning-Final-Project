@@ -37,13 +37,13 @@ class LSTMMultiTask(tf.keras.Model):
         self.masking = tf.keras.layers.Masking(mask_value=0.0)
 
         ###after trying conv layer, you can try adding some more dense layers here
-        # self.extra_dense_1 = tf.keras.layers.Dense(32, activation='relu')
-        # self.extra_dense_2 = tf.keras.layers.Dense(16, activation='relu')
-        self.genre_dense1 = tf.keras.layers.Dense(32, activation='relu')
-        self.genre_dense2 = tf.keras.layers.Dense(16, activation='relu')
+        self.extra_dense_1 = tf.keras.layers.Dense(32, activation='relu')
+        self.extra_dense_2 = tf.keras.layers.Dense(16, activation='relu')
+        # self.genre_dense1 = tf.keras.layers.Dense(32, activation='relu')
+        # self.genre_dense2 = tf.keras.layers.Dense(16, activation='relu')
 
-        self.emotion_dense1 = tf.keras.layers.Dense(32, activation='relu')
-        self.emotion_dense2 = tf.keras.layers.Dense(16, activation='relu')
+        # self.emotion_dense1 = tf.keras.layers.Dense(32, activation='relu')
+        # self.emotion_dense2 = tf.keras.layers.Dense(16, activation='relu')
         
         self.genre_output = tf.keras.layers.Dense(
             units=num_genres,
@@ -77,16 +77,16 @@ class LSTMMultiTask(tf.keras.Model):
         x_shared = self.dropout2(x_shared, training=not is_testing)
         x_shared = self.layernorm2(x_shared)
 
-        # x_genre = self.extra_dense_1(x_shared)
-        # x_genre = self.extra_dense_2(x_genre)
-        x_genre = self.genre_dense1(x_shared)
-        x_genre = self.genre_dense2(x_genre)
+        x_genre = self.extra_dense_1(x_shared)
+        x_genre = self.extra_dense_2(x_genre)
+        # x_genre = self.genre_dense1(x_shared)
+        # x_genre = self.genre_dense2(x_genre)
         genre_preds = self.genre_output(x_genre)
-        x_emotion = tf.stop_gradient(x_shared)
-        x_emotion = self.emotion_dense1(x_emotion)
-        x_emotion = self.emotion_dense2(x_emotion)
-        # x_emotion = self.extra_dense_1(x_emotion)
-        # x_emotion = self.extra_dense_2(x_emotion)
+        # x_emotion = tf.stop_gradient(x_shared)
+        # x_emotion = self.emotion_dense1(x_emotion)
+        # x_emotion = self.emotion_dense2(x_emotion)
+        x_emotion = self.extra_dense_1(x_shared)
+        x_emotion = self.extra_dense_2(x_emotion)
         va_preds = self.reg_output(x_emotion)
         return {"genre": genre_preds, "valence_arousal": va_preds}
 

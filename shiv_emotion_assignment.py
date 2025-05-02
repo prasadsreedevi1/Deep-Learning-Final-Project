@@ -10,6 +10,7 @@ import matplotlib.ticker as ticker
 from shiv_emotion_model import LSTMMultiTask
 from shiv_preprocessing import get_data_emotion   
 from shiv_preprocessing import get_data
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 def train(model, optimizer, inputs, train_genre_labels, train_va_labels, batch_size=64):
@@ -90,30 +91,30 @@ def plot_loss_and_accuracy(losses, genre_accuracies):
 
     ax1.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
 
-    plt.title('LSTM Loss and Genre Accuracy over Epochs', fontsize=16)
+    plt.title('LSTM-CNN Loss and Genre Accuracy over Epochs', fontsize=16)
     fig.tight_layout()
-    plt.savefig('data/lstm_loss_and_accuracy.png')
+    plt.savefig('data/lstmcnn_loss_and_accuracy.png')
     plt.show()
 
 def plot_loss(losses):
     epochs = list(range(len(losses)))
     plt.figure(figsize=(8,5))
     plt.plot(epochs, losses, color='red', linewidth=2)
-    plt.title('LSTM Loss per Epoch', fontsize=16)
+    plt.title('LSTM-CNN Loss per Epoch', fontsize=16)
     plt.xlabel('Epoch', fontsize=14)
     plt.ylabel('Loss', fontsize=14)
     plt.grid(True, linestyle='--', linewidth=0.5)
     ax = plt.gca()
     ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     plt.tight_layout()
-    plt.savefig('data/lstm_loss.png')
+    plt.savefig('data/lstmcnn_loss.png')
     plt.show()
 
 def plot_genre_accuracy(genre_accuracies):
     epochs = list(range(len(genre_accuracies)))
     plt.figure(figsize=(8,5))
     plt.plot(epochs, genre_accuracies, color='blue', linewidth=2)
-    plt.title('LSTM Genre Classification Accuracy over Epochs', fontsize=16)
+    plt.title('LSTM-CNN Genre Classification Accuracy over Epochs', fontsize=16)
     plt.xlabel('Epoch', fontsize=14)
     plt.ylabel('Accuracy', fontsize=14)
     plt.ylim(0, 1.05)
@@ -121,26 +122,26 @@ def plot_genre_accuracy(genre_accuracies):
     ax = plt.gca()
     ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     plt.tight_layout()
-    plt.savefig('data/lstm_genre_accuracy.png')
+    plt.savefig('data/lstmcnn_genre_accuracy.png')
     plt.show()
 
 def plot_valence_mae(valence_maes):
     epochs = list(range(len(valence_maes)))
     plt.figure(figsize=(8,5))
     plt.plot(epochs, valence_maes, color='green', linewidth=2)
-    plt.title('LSTM Valence-Arousal MAE over Epochs', fontsize=16)
+    plt.title('LSTM-CNN Valence-Arousal MAE over Epochs', fontsize=16)
     plt.xlabel('Epoch', fontsize=14)
     plt.ylabel('MAE', fontsize=14)
     plt.grid(True, linestyle='--', linewidth=0.5)
     ax = plt.gca()
     ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     plt.tight_layout()
-    plt.savefig('data/lstm_va_mae.png')
+    plt.savefig('data/lstmcnn_va_mae.png')
     plt.show()
 
 def main():
-    train_imgs, train_genre_labels, train_va_labels = get_data_emotion('data/train_data_shiv.csv')
-    test_imgs, test_genre_labels, test_va_labels = get_data_emotion('data/test_data_shiv.csv')
+    train_imgs, train_genre_labels, train_va_labels = get_data_emotion('data/good_train_data_shiv.csv')
+    test_imgs, test_genre_labels, test_va_labels = get_data_emotion('data/good_test_data_shiv.csv')
 
     train_genre_labels = tf.convert_to_tensor(train_genre_labels, dtype=tf.int32)
     test_genre_labels = tf.convert_to_tensor(test_genre_labels, dtype=tf.int32)
@@ -152,7 +153,7 @@ def main():
     loss_per_epoch = []
     genre_acc_per_epoch = []
     va_mae_per_epoch = []
-    epochs = 100
+    epochs = 75
     for epoch in range(1, epochs+1):
         tf.print(f"\nEpoch {epoch}/{epochs}")
         train(model, optimizer, train_imgs, train_genre_labels, train_va_labels, batch_size=64)
@@ -164,6 +165,30 @@ def main():
     plot_genre_accuracy(genre_acc_per_epoch)
     plot_valence_mae(va_mae_per_epoch)
     plot_loss_and_accuracy(loss_per_epoch, genre_acc_per_epoch)
+
+    all_preds = []
+    batch_size = 64
+    for i in range(0, test_imgs.shape[0], batch_size):
+        inputs_batch = test_imgs[i:i+batch_size]
+        preds = model(inputs_batch, is_testing=True)
+        genre_logits = preds["genre"]
+        predicted_batch = tf.argmax(genre_logits, axis=1, output_type=tf.int32).numpy()
+        all_preds.extend(predicted_batch)
+
+    predicted_labels = np.array(all_preds)
+    true_labels = test_genre_labels.numpy()
+
+    cm = confusion_matrix(true_labels, predicted_labels)
+    genre_names = ["classical", "country", "blues", "electronic"]
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=genre_names)
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    disp.plot(cmap='Blues', ax=ax, xticks_rotation=45)
+    plt.title('LSTM-CNN Confusion Matrix: Genre Classification')
+    plt.tight_layout()
+    plt.savefig('data/lstm_cnn_confusion_matrix.png')
+    plt.show()
+    
 
 if __name__ == '__main__':
     main()
