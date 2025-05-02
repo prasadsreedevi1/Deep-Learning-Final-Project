@@ -7,10 +7,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-from shiv_emotion_model import LSTMMultiTask
-from shiv_preprocessing import get_data_emotion   
-from shiv_preprocessing import get_data
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from lstm_cnn_model import LSTMMultiTask
+from preprocessing import get_data_emotion   
+from preprocessing import get_data
 
 
 def train(model, optimizer, inputs, train_genre_labels, train_va_labels, batch_size=64):

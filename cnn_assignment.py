@@ -1,7 +1,7 @@
 
 from __future__ import absolute_import
 
-from cathy_model import CNN
+from cnn_model import CNN
 import os
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
