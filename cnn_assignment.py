@@ -1,7 +1,7 @@
 
 from __future__ import absolute_import
 
-from cnn_model import CNN
+from cathy_model import CNN
 import os
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -18,45 +18,26 @@ import matplotlib.pyplot as plt
 
 
 def train(model, optimizer, train_inputs, train_genre_labels, train_va_labels):
-    '''
-    Trains the model on all of the inputs and labels for one epoch. You should shuffle your inputs
-    and labels - ensure that they are shuffled in the same order using tf.gather.
-    To increase accuracy, you may want to use tf.image.random_flip_left_right on your
-    inputs before doing the forward pass. You should batch your inputs.
-    :param model: the initialized model to use for the forward pass and backward pass
-    :param train_inputs: train inputs (all inputs to use for training),
-    shape (num_inputs, width, height, num_channels)
-    :param train_labels: train labels (all labels to use for training),
-    shape (num_labels, num_classes)
-    :return: None
-    '''
     indicies = tf.range(tf.shape(train_inputs)[0])
-    
     shuffled_indicies = tf.random.shuffle(indicies)
     shuffled_inputs = tf.gather(train_inputs, shuffled_indicies)
     shuffled_train_genre_labels = tf.gather(train_genre_labels, shuffled_indicies)
     shuffled_train_va_labels = tf.gather(train_va_labels, shuffled_indicies)
-    # flipped_inputs = tf.image.random_flip_left_right(shuffled_inputs)
     sample_size = shuffled_inputs.shape[0]
     batch_size = 64
-    # loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
-    #     from_logits=False,
-    #     reduction=tf.keras.losses.Reduction.NONE
-    # )
+   
     for i in range(0, sample_size, batch_size):
             inputs_batch = shuffled_inputs[i:i+batch_size]
             genre_labels_batch = shuffled_train_genre_labels[i:i+batch_size]
             va_labels_batch = shuffled_train_va_labels[i:i+batch_size]
             with tf.GradientTape() as tape:
                 output, valence_arousal_preds = model.call(inputs_batch, False)
-                # output = model.call(inputs_batch, False)
-                # loss = model.loss(output, labels_batch)
+               
                 loss = model.loss(output, genre_labels_batch, valence_arousal_preds, va_labels_batch)
                 accuracy = model.accuracy(output, genre_labels_batch)
                 va_mae = model.valence_arousal_accuracy(valence_arousal_preds, va_labels_batch)
                 
-                # print("Training accuracy" + str(accuracy))
-                # print("Training loss" + str(loss))
+              
             gradients = tape.gradient(loss,model.trainable_weights)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
        
@@ -116,24 +97,18 @@ def plot_valence_mae(valence_maes):
     plt.show()
 
 def test(model, test_inputs, test_genre_labels, test_va_labels):
-   
-    indicies = tf.range(tf.shape(test_inputs)[0])
-    shuffled_indicies = tf.random.shuffle(indicies)
-    shuffled_inputs = tf.gather(test_inputs, shuffled_indicies)
-    shuffled_test_genre_labels = tf.gather(test_genre_labels, shuffled_indicies)
-    shuffled_test_va_labels = tf.gather(test_va_labels, shuffled_indicies)
-    sample_size = shuffled_inputs.shape[0]
+
+    sample_size = test_inputs.shape[0]
     batch_size = 64
     batches = 0
     total_accuracy = 0
     total_loss = 0
     va_mae_total = 0
     for i in range(0, sample_size, batch_size):
-        inputs_batch = shuffled_inputs[i:i+batch_size]
-        batch_test_genre_labels = shuffled_test_genre_labels[i:i+batch_size]
-        batch_test_va_labels = shuffled_test_va_labels[i:i+batch_size]
+        inputs_batch = test_inputs[i:i+batch_size]
+        batch_test_genre_labels = test_genre_labels[i:i+batch_size]
+        batch_test_va_labels = test_va_labels[i:i+batch_size]
         output, valence_arousal_preds = model.call(inputs_batch, True)
-        # output = model.call(inputs_batch, True)
         loss = model.loss(output, batch_test_genre_labels, valence_arousal_preds, batch_test_va_labels)
         accuracy = model.accuracy(output, batch_test_genre_labels)
         total_accuracy+= accuracy
@@ -141,7 +116,7 @@ def test(model, test_inputs, test_genre_labels, test_va_labels):
         total_loss += loss
         va_mae = model.valence_arousal_accuracy(valence_arousal_preds, batch_test_va_labels)
         va_mae_total += va_mae
-  
+
     avg_accuracy = total_accuracy / batches
     avg_va_mae = va_mae_total / batches
     avg_loss = total_loss / batches
@@ -154,7 +129,7 @@ def test(model, test_inputs, test_genre_labels, test_va_labels):
     return total_accuracy/batches
 
 def visualize_loss(losses):
-  
+   
     epochs = list(range(len(losses)))
     plt.figure(figsize=(8, 5))
     plt.plot(epochs, losses, color='red', linewidth=2)
@@ -177,50 +152,47 @@ def visualize_accuracy(accuracies):
 
 
 def main():
+    
 
     train_imgs, train_genre_labels, train_va_labels = get_data('data/train_data_shiv.csv')
     test_imgs, test_genre_labels, test_va_labels = get_data('data/test_data_shiv.csv')
-    df = pd.read_csv('data/train_data_shiv.csv')
-    df["genre_id"] = df["Genre"].astype('category').cat.codes
-    num_classes = df["genre_id"].nunique()  
+
+    num_classes = 4
     train_genre_labels = tf.convert_to_tensor(train_genre_labels, dtype=tf.int32)
     test_genre_labels = tf.convert_to_tensor(test_genre_labels, dtype=tf.int32)
     train_va_labels = tf.convert_to_tensor(train_va_labels, dtype=tf.float32)
     test_va_labels = tf.convert_to_tensor(test_va_labels, dtype=tf.float32)
 
-    # test_labels = tf.convert_to_tensor([tf.one_hot(label, num_classes) for label in test_labels])
-    # train_labels = tf.convert_to_tensor([tf.one_hot(label, num_classes) for label in train_labels])
-    # classes = np.arange(num_classes) + 1
-    # cnn model = CNN(classes)
     reduce_lr = ReduceLROnPlateau(
         monitor='val_accuracy',   
         factor=0.5,            
         patience=10,              
         verbose=1,
-        min_lr=1e-4
+        min_lr=1e-6
     )
    
     cnn_model = CNN(num_classes)
     optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=1e-3)
     cnn_model.optimizer = optimizer 
+
     reduce_lr.set_model(cnn_model)
     reduce_lr.on_train_begin() 
+
 
 
     for epoch in range(150):
         train(cnn_model, optimizer, train_imgs, train_genre_labels, train_va_labels)
         test_accuracy = test(cnn_model, test_imgs, test_genre_labels, test_va_labels)
-  
+       
         print(f"Epoch {epoch:3d} — Test Accuracy={test_accuracy:.4f}")
         reduce_lr.on_epoch_end(epoch, logs={'val_accuracy': test_accuracy})
-    
+       
     genre_logits, _ = cnn_model.call(test_imgs, is_testing=True)
     predicted_labels = tf.argmax(genre_logits, axis=1, output_type=tf.int32).numpy()
     true_labels = test_genre_labels.numpy()
 
     cm = confusion_matrix(true_labels, predicted_labels)
-   
-    genre_names = ["pop", "classical", "electronic", "country", "blues"]
+    genre_names = ["classical", "country", "blues", "electronic"]
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=genre_names)
 
     fig, ax = plt.subplots(figsize=(6, 6))
@@ -233,9 +205,6 @@ def main():
     plot_genre_accuracy(cnn_model.accuracy_list)
     plot_valence_mae(cnn_model.va_mae_list)
     plot_loss_and_accuracy(cnn_model.loss_list, cnn_model.accuracy_list)
-
-
-    return
 
 
     

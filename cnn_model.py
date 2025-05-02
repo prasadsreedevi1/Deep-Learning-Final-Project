@@ -140,28 +140,14 @@ class CNN(tf.keras.Model):
             strides=[1, 2, 2, 1],
             padding='SAME'
         )
-        # x = self.layer_3_2(x)
-        # x = tf.nn.relu(x)
-        # x = self.batch_norm_5(x)
-        # x = tf.nn.max_pool(
-        #     x,
-        #     ksize=[1, 2, 2, 1],
-        #     strides=[1, 2, 2, 1],
-        #     padding='SAME'
-        # )
-        # if not is_testing:
-        #     x = tf.image.random_flip_left_right(x)
-
+      
         x = GlobalAveragePooling2D()(x)
 
-        # x = tf.reshape(x, [tf.shape(x)[0], -1])
         x = self.layer_4(x)
         x = self.dropout(x)
 
 
 
-        # x = self.layer_5(x)
-        # x = self.dropout1(x)
 
         output = self.output_layer(x)
 
