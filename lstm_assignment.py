@@ -122,7 +122,7 @@ def main():
     loss_per_epoch = []
     genre_acc_per_epoch = []
     va_mae_per_epoch = []
-    epochs = 75
+    epochs = 2
     for epoch in range(1, epochs+1):
         tf.print(f"\nEpoch {epoch}/{epochs}")
         train(model, optimizer, train_imgs, train_genre_labels, train_va_labels, batch_size=64)
