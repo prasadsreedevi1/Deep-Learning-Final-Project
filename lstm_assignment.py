@@ -69,7 +69,7 @@ def test(model, inputs, genre_labels, va_labels, batch_size=64):
     return avg_loss, avg_genre_acc, avg_va_mae
 
 
-def plot_loss_and_accuracy(losses, genre_accuracies):
+def plot_loss_and_accuracy(losses, accuracies):
     epochs = list(range(len(losses)))
 
     fig, ax1 = plt.subplots(figsize=(8, 5))
@@ -94,9 +94,6 @@ def plot_loss_and_accuracy(losses, genre_accuracies):
 
 
 
-
-
-
 def plot_valence_mae(valence_maes):
     epochs = list(range(len(valence_maes)))
     plt.figure(figsize=(8, 5))
@@ -112,8 +109,8 @@ def plot_valence_mae(valence_maes):
     plt.show()
 
 def main():
-    train_imgs, train_genre_labels, train_va_labels = get_data_emotion('data/good_train_data_shiv.csv')
-    test_imgs, test_genre_labels, test_va_labels = get_data_emotion('data/good_test_data_shiv.csv')
+    train_imgs, train_genre_labels, train_va_labels = get_data_emotion('data/train_data.csv')
+    test_imgs, test_genre_labels, test_va_labels = get_data_emotion('data/test_data.csv')
 
     train_genre_labels = tf.convert_to_tensor(train_genre_labels, dtype=tf.int32)
     test_genre_labels = tf.convert_to_tensor(test_genre_labels, dtype=tf.int32)
@@ -133,8 +130,6 @@ def main():
         loss_per_epoch.append(avg_loss.numpy())
         genre_acc_per_epoch.append(avg_genre_acc.numpy())
         va_mae_per_epoch.append(avg_va_mae.numpy())
-    plot_loss(loss_per_epoch)
-    plot_genre_accuracy(genre_acc_per_epoch)
     plot_valence_mae(va_mae_per_epoch)
     plot_loss_and_accuracy(loss_per_epoch, genre_acc_per_epoch)
 
@@ -156,9 +151,9 @@ def main():
 
     fig, ax = plt.subplots(figsize=(6, 6))
     disp.plot(cmap='Blues', ax=ax, xticks_rotation=45)
-    plt.title('LSTM-CNN Confusion Matrix: Genre Classification')
+    plt.title('LSTM Confusion Matrix: Genre Classification')
     plt.tight_layout()
-    plt.savefig('data/lstm_cnn_confusion_matrix.png')
+    plt.savefig('data/lstm_confusion_matrix.png')
     plt.show()
     
 

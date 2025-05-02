@@ -112,14 +112,9 @@ def create_csv():
     df = pd.merge(va_df, genre_df[["song_id", "Genre"]], on="song_id", how="inner")
 
     df = df[df["Genre"].notna()]
-    # core_genres = ["jazz", "country", "electronic"]
-    core_genres = ["pop", "classical", "electronic", "country", "blues"]
-    # core_genres = ["jazz", "classical", "electronic", "country", "blues"]
-    # core_genres = ["classical", "country", "blues", "electronic"]
-    # core_genres = ["country", "jazz", "pop", "electronic"]
-    # core_genres = ["country", "jazz", "rock", "electronic"]
-
-    # core_genres =["classical", "country", "jazz", "blues", "electronic"]
+   
+    core_genres = ["classical", "country", "blues", "electronic"]
+   
 
     def map_to_core_genre(genre_str):
         for g in genre_str.lower().split('-'):
@@ -266,8 +261,8 @@ def split_train_test():
     print("Test shape:", test_df.shape)
     
     #save as new csv
-    train_df.to_csv('data/train_data_shiv.csv', index=False)
-    test_df.to_csv('data/test_data_shiv.csv', index=False)
+    train_df.to_csv('data/train_data.csv', index=False)
+    test_df.to_csv('data/test_data.csv', index=False)
 
 def main():
     # generate_spectrograms()

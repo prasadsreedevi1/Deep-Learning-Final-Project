@@ -1,17 +1,10 @@
 import tensorflow as tf
-from tensorflow.keras.regularizers import l2
 
 class LSTMMultiTask(tf.keras.Model):
     def __init__(self, num_genres, hidden_size=128, reg_weight=5.0):
         super(LSTMMultiTask, self).__init__()
         self.reg_weight = reg_weight
 
-        self.epsilon = 1e-3
-        self.convlayer_1 = tf.keras.layers.Conv2D(
-            filters=128, kernel_size=(3, 3), strides=(2, 2), activation='relu',
-            padding='SAME',  use_bias=True, kernel_initializer='he_normal'
-        )
-        self.batch_norm1 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
         self.pre_dense = tf.keras.layers.Dense(256, activation='relu')
         self.dropout1 = tf.keras.layers.Dropout(0.3)
         self.layernorm1 = tf.keras.layers.LayerNormalization()
@@ -25,14 +18,11 @@ class LSTMMultiTask(tf.keras.Model):
             merge_mode='concat'
         )
 
-        self.shared_dense = tf.keras.layers.Dense(64, activation='relu', kernel_regularizer=l2(1e-4))
+        self.shared_dense = tf.keras.layers.Dense(64, activation='relu')
         self.dropout2 = tf.keras.layers.Dropout(0.3)
         self.layernorm2 = tf.keras.layers.LayerNormalization()
         self.masking = tf.keras.layers.Masking(mask_value=0.0)
 
-        self.extra_dense_1 = tf.keras.layers.Dense(32, activation='relu', kernel_regularizer=l2(1e-4))
-        self.extra_dense_2 = tf.keras.layers.Dense(16, activation='relu', kernel_regularizer=l2(1e-4))
-      
         self.genre_output = tf.keras.layers.Dense(
             units=num_genres,
             activation='softmax',
@@ -43,36 +33,21 @@ class LSTMMultiTask(tf.keras.Model):
             activation='sigmoid',
         )
 
+
     def call(self, inputs, is_testing=False):
-        x = tf.reshape(inputs, [-1, 256, 32, 3])
-        x = self.convlayer_1(x)
-        x = tf.nn.max_pool(
-            x,
-            ksize=[1, 2, 2, 1],
-            strides=[1, 2, 2, 1],
-            padding='SAME'
-        )
-        x = self.batch_norm1(x)
-        x = tf.reshape(x, [tf.shape(inputs)[0], 10, -1])
-        x = self.masking(x)
+        x = self.masking(inputs)
         x = self.pre_dense(x)
         x = self.dropout1(x, training=not is_testing)
         x = self.layernorm1(x)
 
         x = self.lstm(x)
 
-        x_shared = self.shared_dense(x)
-        x_shared = self.dropout2(x_shared, training=not is_testing)
-        x_shared = self.layernorm2(x_shared)
+        x = self.shared_dense(x)
+        x = self.dropout2(x, training=not is_testing)
+        x = self.layernorm2(x)
 
-        x_genre = self.extra_dense_1(x_shared)
-        x_genre = self.extra_dense_2(x_genre)
-
-        genre_preds = self.genre_output(x_genre)
-      
-        x_emotion = self.extra_dense_1(x_shared)
-        x_emotion = self.extra_dense_2(x_emotion)
-        va_preds = self.reg_output(x_emotion)
+        genre_preds = self.genre_output(x)
+        va_preds = self.reg_output(x)
         return {"genre": genre_preds, "valence_arousal": va_preds}
 
     def compute_loss(self, preds, targets):

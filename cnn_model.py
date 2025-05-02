@@ -6,7 +6,6 @@ import numpy as np
 import random
 import math
 import pandas as pd
-from shiv_preprocessing import get_data
 
 from tensorflow.keras.regularizers import l2
 
@@ -21,18 +20,11 @@ import math
 
 
 
-
 class CNN(tf.keras.Model):
     def __init__(self, classes):
-        """
-        This model class will contain the architecture for your CNN that
-        classifies images. Do not modify the constructor, as doing so
-        will break the autograder. We have left in variables in the constructor
-        for you to fill out, but you are welcome to change them if you'd like.
-        """
+       
         super(CNN, self).__init__()
 
-        # Initialize all hyperparameters
         self.loss_list = []
         self.batch_size = 64
         self.input_width = 256
@@ -44,7 +36,7 @@ class CNN(tf.keras.Model):
 
         self.hidden_layer_size = 128
 
-        self.epsilon = 1e-3  # this is used for batch normalization only!
+        self.epsilon = 1e-3  
         self.layer_1_1 = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3,3), 
                                               strides=(1, 1),
             padding='SAME',
@@ -78,7 +70,6 @@ class CNN(tf.keras.Model):
 
         self.layer_4 = tf.keras.layers.Dense(units=self.hidden_layer_size, activation='relu', kernel_regularizer=l2(1e-4), kernel_initializer='he_normal')
 
-        self.layer_5 = tf.keras.layers.Dense(units=self.hidden_layer_size, activation='relu', kernel_regularizer=l2(1e-4), kernel_initializer='he_normal')
       
         self.augment_1 = tf.keras.layers.RandomZoom(0.1)
         self.augment_2 = tf.keras.layers.RandomTranslation(0.1, 0.1)

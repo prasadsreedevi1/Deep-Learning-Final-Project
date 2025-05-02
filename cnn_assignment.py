@@ -12,7 +12,7 @@ import numpy as np
 import random
 import math
 import pandas as pd
-from shiv_preprocessing import get_data
+from preprocessing import get_data
 import matplotlib.pyplot as plt
 
 
@@ -66,20 +66,7 @@ def plot_loss_and_accuracy(losses, accuracies):
     plt.savefig('data/cnn_loss_accuracy_combined.png')
     plt.show()
 
-def plot_genre_accuracy(genre_accuracies):
-    epochs = list(range(len(genre_accuracies)))
 
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, genre_accuracies, label='Genre Accuracy', color='blue', linewidth=2)
-    plt.title('CNN Genre Classification Accuracy over Epochs', fontsize=16)
-    plt.xlabel('Epoch', fontsize=14)
-    plt.ylabel('Accuracy', fontsize=14)
-    plt.ylim(0, 1.05)
-    plt.grid(True, linestyle='--', linewidth=0.5)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('data/cnn_genre_accuracy.png')
-    plt.show()
 
 def plot_valence_mae(valence_maes):
     epochs = list(range(len(valence_maes)))
@@ -128,34 +115,12 @@ def test(model, test_inputs, test_genre_labels, test_va_labels):
     print("Valence-Arousal MAE:", va_mae_total / batches)
     return total_accuracy/batches
 
-def visualize_loss(losses):
-   
-    epochs = list(range(len(losses)))
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, losses, color='red', linewidth=2)
-    plt.title('CNN Loss per Epoch', fontsize=16)
-    plt.xlabel('Epoch', fontsize=14)
-    plt.ylabel('Loss', fontsize=14)
-    plt.grid(True, linestyle='--', linewidth=0.5)
-    plt.tight_layout()
-    plt.savefig('data/cnn_loss.png')
-    plt.show()
-
-def visualize_accuracy(accuracies):
-    x = [i for i in range(len(accuracies))]
-    plt.plot(x, accuracies)
-    plt.title('Training Accuracy per Batch')
-    plt.xlabel('Batch')
-    plt.ylabel('Accuracy')
-    
-    plt.show()
-
 
 def main():
     
 
-    train_imgs, train_genre_labels, train_va_labels = get_data('data/train_data_shiv.csv')
-    test_imgs, test_genre_labels, test_va_labels = get_data('data/test_data_shiv.csv')
+    train_imgs, train_genre_labels, train_va_labels = get_data('data/train_data.csv')
+    test_imgs, test_genre_labels, test_va_labels = get_data('data/test_data.csv')
 
     num_classes = 4
     train_genre_labels = tf.convert_to_tensor(train_genre_labels, dtype=tf.int32)
@@ -201,8 +166,7 @@ def main():
     plt.tight_layout()
     plt.savefig('data/cnn_confusion_matrix.png')
     plt.show()
-    visualize_loss(cnn_model.loss_list)
-    plot_genre_accuracy(cnn_model.accuracy_list)
+   
     plot_valence_mae(cnn_model.va_mae_list)
     plot_loss_and_accuracy(cnn_model.loss_list, cnn_model.accuracy_list)
 
