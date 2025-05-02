@@ -112,8 +112,8 @@ def plot_valence_mae(valence_maes):
     plt.show()
 
 def main():
-    train_imgs, train_genre_labels, train_va_labels = get_data_emotion('data/good_train_data_shiv.csv')
-    test_imgs, test_genre_labels, test_va_labels = get_data_emotion('data/good_test_data_shiv.csv')
+    train_imgs, train_genre_labels, train_va_labels = get_data_emotion('data/train_data.csv')
+    test_imgs, test_genre_labels, test_va_labels = get_data_emotion('data/test_data.csv')
 
     train_genre_labels = tf.convert_to_tensor(train_genre_labels, dtype=tf.int32)
     test_genre_labels = tf.convert_to_tensor(test_genre_labels, dtype=tf.int32)
