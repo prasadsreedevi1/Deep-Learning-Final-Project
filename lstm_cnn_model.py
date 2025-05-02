@@ -5,6 +5,19 @@ class LSTMMultiTask(tf.keras.Model):
         super(LSTMMultiTask, self).__init__()
         self.reg_weight = reg_weight
 
+
+        ####
+        # add a conv2D block here
+            #conv layer
+            #max pooling
+            #batch norm
+        #####
+        self.epsilon = 1e-3
+        self.convlayer_1 = tf.keras.layers.Conv2D(
+            filters=128, kernel_size=(3, 3), strides=(2, 2), activation='relu',
+            padding='SAME',  use_bias=True, kernel_initializer='he_normal'
+        )
+        self.batch_norm1 = tf.keras.layers.BatchNormalization(epsilon=self.epsilon)
         self.pre_dense = tf.keras.layers.Dense(256, activation='relu')
         self.dropout1 = tf.keras.layers.Dropout(0.3)
         self.layernorm1 = tf.keras.layers.LayerNormalization()
@@ -23,6 +36,15 @@ class LSTMMultiTask(tf.keras.Model):
         self.layernorm2 = tf.keras.layers.LayerNormalization()
         self.masking = tf.keras.layers.Masking(mask_value=0.0)
 
+        ###after trying conv layer, you can try adding some more dense layers here
+        # self.extra_dense_1 = tf.keras.layers.Dense(32, activation='relu')
+        # self.extra_dense_2 = tf.keras.layers.Dense(16, activation='relu')
+        self.genre_dense1 = tf.keras.layers.Dense(32, activation='relu')
+        self.genre_dense2 = tf.keras.layers.Dense(16, activation='relu')
+
+        self.emotion_dense1 = tf.keras.layers.Dense(32, activation='relu')
+        self.emotion_dense2 = tf.keras.layers.Dense(16, activation='relu')
+        
         self.genre_output = tf.keras.layers.Dense(
             units=num_genres,
             activation='softmax',
@@ -30,25 +52,42 @@ class LSTMMultiTask(tf.keras.Model):
 
         self.reg_output = tf.keras.layers.Dense(
             units=2,
-            activation='linear',
+            activation='sigmoid',
         )
 
-
-
     def call(self, inputs, is_testing=False):
-        x = self.masking(inputs)
+        x = tf.reshape(inputs, [-1, 256, 32, 3])
+        x = self.convlayer_1(x)
+        x = tf.nn.max_pool(
+            x,
+            ksize=[1, 2, 2, 1],
+            strides=[1, 2, 2, 1],
+            padding='SAME'
+        )
+        x = self.batch_norm1(x)
+        x = tf.reshape(x, [tf.shape(inputs)[0], 10, -1])
+        x = self.masking(x)
         x = self.pre_dense(x)
         x = self.dropout1(x, training=not is_testing)
         x = self.layernorm1(x)
 
         x = self.lstm(x)
 
-        x = self.shared_dense(x)
-        x = self.dropout2(x, training=not is_testing)
-        x = self.layernorm2(x)
+        x_shared = self.shared_dense(x)
+        x_shared = self.dropout2(x_shared, training=not is_testing)
+        x_shared = self.layernorm2(x_shared)
 
-        genre_preds = self.genre_output(x)
-        va_preds = self.reg_output(x)
+        # x_genre = self.extra_dense_1(x_shared)
+        # x_genre = self.extra_dense_2(x_genre)
+        x_genre = self.genre_dense1(x_shared)
+        x_genre = self.genre_dense2(x_genre)
+        genre_preds = self.genre_output(x_genre)
+        x_emotion = tf.stop_gradient(x_shared)
+        x_emotion = self.emotion_dense1(x_emotion)
+        x_emotion = self.emotion_dense2(x_emotion)
+        # x_emotion = self.extra_dense_1(x_emotion)
+        # x_emotion = self.extra_dense_2(x_emotion)
+        va_preds = self.reg_output(x_emotion)
         return {"genre": genre_preds, "valence_arousal": va_preds}
 
     def compute_loss(self, preds, targets):
