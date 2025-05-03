@@ -6,4 +6,4 @@ Here are the links to the checkins, as well as final writeup:
 - [Project Checkin #2](https://docs.google.com/document/d/1mXJneTKinBJNI6kdemqgemFxJaP8arTtVxeYDdG-8a0/edit?usp=sharing)
 - [Project Checkin #3](https://docs.google.com/document/d/1p59hhyRHtNMDToisd3GmcwkOEVSwjwW6xa2jqg4Tnag/edit?usp=sharing)
 - The written report is located in this repository, as "Final Writeup_ Music Genre_Sentiment Classifier.pdf", but can also be accessed [here](https://docs.google.com/document/d/1w5Q-wv4zOt7rg6KT8RYWQa_JB9mvyRTR1AE6Uo-ULpI/edit?usp=sharing).
-- The final poster is located in this repository, as "final_poster.png".
+- The final poster is located in this repository, as "Deep Learners - Final Project.png".
